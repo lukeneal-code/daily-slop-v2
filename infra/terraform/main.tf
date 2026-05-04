@@ -134,6 +134,9 @@ module "cloud_run_api" {
   secret_openai    = "openai-api-key"
   secret_xai       = "xai-api-key"
 
+  linkedin_org_urn = var.linkedin_org_urn
+  site_url         = "https://${var.domain}"
+
   depends_on = [
     module.gcs_images,
     module.cloudsql,
@@ -162,6 +165,41 @@ module "cloud_scheduler" {
   scheduler_sa_email = "scheduler-invoker@${var.project_id}.iam.gserviceaccount.com"
 
   depends_on = [google_project_service.apis]
+}
+
+# Second scheduler job: post the day's front-page picks to LinkedIn.
+# Reuses the scheduler SA created by module.cloud_scheduler. Disabled when
+# linkedin_org_urn is unset (the count-based no-op).
+resource "google_cloud_scheduler_job" "linkedin_post" {
+  count = var.linkedin_org_urn == "" ? 0 : 1
+
+  project   = var.project_id
+  region    = var.region
+  name      = "daily-slop-linkedin-prod"
+  schedule  = var.linkedin_scheduler_cron
+  time_zone = var.scheduler_timezone
+
+  http_target {
+    http_method = "POST"
+    uri         = "${module.cloud_run_api.service_url}/admin/post-linkedin"
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode(jsonencode({}))
+
+    oidc_token {
+      service_account_email = module.cloud_scheduler.service_account_email
+      audience              = module.cloud_run_api.service_url
+    }
+  }
+
+  retry_config {
+    retry_count          = 2
+    min_backoff_duration = "60s"
+    max_retry_duration   = "600s"
+  }
+
+  depends_on = [module.cloud_scheduler, module.cloud_run_api]
 }
 
 # ---------------------------------------------------------------------------

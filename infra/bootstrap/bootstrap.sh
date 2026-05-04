@@ -28,6 +28,10 @@ SECRETS=(
   langfuse-nextauth-secret
   langfuse-salt
   langfuse-encryption-key
+  linkedin-client-id
+  linkedin-client-secret
+  linkedin-access-token
+  linkedin-refresh-token
 )
 
 REQUIRED_APIS=(
@@ -105,6 +109,10 @@ NEXT STEP — populate secret values manually:
   openssl rand -base64 32 | gcloud secrets versions add langfuse-nextauth-secret --data-file=-
   openssl rand -base64 32 | gcloud secrets versions add langfuse-salt --data-file=-
   openssl rand -hex   32  | gcloud secrets versions add langfuse-encryption-key --data-file=-
+
+  # LinkedIn — run backend/scripts/linkedin_oauth.py to populate all four:
+  #   LINKEDIN_CLIENT_ID=… LINKEDIN_CLIENT_SECRET=… GCP_PROJECT_ID=${PROJECT_ID} \\
+  #     uv run python -m scripts.linkedin_oauth
 
 ──────────────────────────────────────────────────────────────────────
 

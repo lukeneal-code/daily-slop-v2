@@ -55,6 +55,19 @@ class Settings(BaseSettings):
     # Feature toggles
     steve_quota: float = 0.25  # share of stories assigned to Steve
 
+    # Site / public URLs
+    site_url: str = "https://dailyslop.co.uk"
+
+    # LinkedIn
+    linkedin_org_urn: str = ""
+    gcp_project_id: str = ""
+    linkedin_client_id_secret: str = "linkedin-client-id"
+    linkedin_client_secret_secret: str = "linkedin-client-secret"
+    linkedin_access_token_secret: str = "linkedin-access-token"
+    linkedin_refresh_token_secret: str = "linkedin-refresh-token"
+    linkedin_dry_run: bool = False
+    linkedin_api_version: str = "202405"
+
     @property
     def is_local(self) -> bool:
         return self.env == "local"

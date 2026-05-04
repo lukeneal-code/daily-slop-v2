@@ -33,10 +33,22 @@ variable "scheduler_cron" {
   default     = "0 6 * * *"
 }
 
+variable "linkedin_scheduler_cron" {
+  description = "Cron expression for the daily LinkedIn-post job (after generation has finished)."
+  type        = string
+  default     = "30 7 * * *"
+}
+
 variable "scheduler_timezone" {
   description = "Time zone the daily cron runs in."
   type        = string
   default     = "Europe/London"
+}
+
+variable "linkedin_org_urn" {
+  description = "LinkedIn organization URN for the company page (e.g. urn:li:organization:12345678). Empty disables LinkedIn posting."
+  type        = string
+  default     = ""
 }
 
 variable "extra_audiences" {
@@ -56,5 +68,9 @@ variable "secret_names" {
     "langfuse-nextauth-secret",
     "langfuse-salt",
     "langfuse-encryption-key",
+    "linkedin-client-id",
+    "linkedin-client-secret",
+    "linkedin-access-token",
+    "linkedin-refresh-token",
   ]
 }

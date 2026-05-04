@@ -132,7 +132,8 @@ gcloud run services proxy langfuse-web --port=8090 --project=daily-slop-v2 --reg
 ```sh
 # At the registrar:
 # 1. Remove the v1 A record (34.13.59.148).
-# 2. Confirm dailyslop.co.uk resolves to the v2 LB IP.
+# 2. Confirm dailyslop.co.uk resolves to the v2 LB IP (or via Cloudflare proxy
+#    if you've followed docs/cloudflare-origin-ca.md).
 # 3. Wait 5–10 min for caches to flush.
 
 # Verify resolution
@@ -141,6 +142,36 @@ dig +short dailyslop.co.uk
 # Stop (don't delete) the v1 VM — we keep it as a 14-day rollback.
 gcloud --project the-daily-slop compute instances stop daily-slop --zone=europe-west2-a
 ```
+
+### 7a. Flip image URLs back to the public domain
+
+While DNS isn't yet cut, the api has been configured to serve images via the
+public GCS URL (`https://storage.googleapis.com/daily-slop-v2-images-prod/<...>.png`)
+so the SPA renders without DNS. Once DNS resolves to the LB, flip the env var
+back so images load from `https://dailyslop.co.uk/images/...` (CDN-cached at
+the edge):
+
+```sh
+# 1. Update the api Cloud Run env so future generations use the public domain.
+gcloud --project daily-slop-v2 run services update api \
+  --region=europe-west2 \
+  --update-env-vars="IMAGES_PUBLIC_BASE_URL=https://dailyslop.co.uk/images"
+
+# 2. Rewrite existing image_assets.public_url values for already-published days.
+gcloud --project daily-slop-v2 run jobs update rewrite-image-urls \
+  --region=europe-west2 \
+  --update-env-vars="OLD_PREFIX=https://storage.googleapis.com/daily-slop-v2-images-prod/,NEW_PREFIX=https://dailyslop.co.uk/images/"
+gcloud --project daily-slop-v2 run jobs execute rewrite-image-urls \
+  --region=europe-west2 --wait
+
+# 3. Verify a sample image loads via the public domain.
+curl -fsI https://dailyslop.co.uk/images/$(date +%Y-%m-%d)/<some-slug>.png | head -3
+```
+
+The script source is `backend/app/ops/rewrite_image_urls.py`; the job's
+`OLD_PREFIX` / `NEW_PREFIX` env vars make it reusable in either direction. To
+roll back to the GCS-public URLs (e.g. if DNS breaks during the cutover),
+swap the prefixes and re-run.
 
 ## 8. Rollback (if needed within 14 days)
 

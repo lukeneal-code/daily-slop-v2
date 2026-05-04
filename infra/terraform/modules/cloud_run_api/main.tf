@@ -18,6 +18,32 @@ variable "images_public_base_url" { type = string }
 variable "secret_anthropic" { type = string }
 variable "secret_openai" { type = string }
 variable "secret_xai" { type = string }
+variable "linkedin_secrets" {
+  type        = list(string)
+  description = "LinkedIn Secret Manager secret IDs the runtime SA needs read access to."
+  default = [
+    "linkedin-client-id",
+    "linkedin-client-secret",
+    "linkedin-access-token",
+    "linkedin-refresh-token",
+  ]
+}
+variable "linkedin_access_token_secret" {
+  type    = string
+  default = "linkedin-access-token"
+}
+variable "linkedin_refresh_token_secret" {
+  type    = string
+  default = "linkedin-refresh-token"
+}
+variable "linkedin_org_urn" {
+  type    = string
+  default = ""
+}
+variable "site_url" {
+  type    = string
+  default = "https://dailyslop.co.uk"
+}
 variable "vpc_connector" {
   type    = string
   default = ""
@@ -34,16 +60,33 @@ resource "google_service_account" "api" {
   display_name = "Cloud Run API runtime"
 }
 
-# Grant the runtime SA read access to each secret it references via secret_key_ref.
+# Grant the runtime SA read access to each secret it references via secret_key_ref
+# or accesses at runtime via the Secret Manager SDK.
 resource "google_secret_manager_secret_iam_member" "api_secret_access" {
-  for_each = toset([
-    var.secret_anthropic,
-    var.secret_openai,
-    var.secret_xai,
-  ])
+  for_each = toset(concat(
+    [
+      var.secret_anthropic,
+      var.secret_openai,
+      var.secret_xai,
+    ],
+    var.linkedin_secrets,
+  ))
   project   = var.project_id
   secret_id = each.value
   role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.api.email}"
+}
+
+# The LinkedIn access + refresh tokens rotate at runtime — the API needs to add
+# new versions, not just read them.
+resource "google_secret_manager_secret_iam_member" "api_linkedin_token_writer" {
+  for_each = toset([
+    var.linkedin_access_token_secret,
+    var.linkedin_refresh_token_secret,
+  ])
+  project   = var.project_id
+  secret_id = each.value
+  role      = "roles/secretmanager.secretVersionAdder"
   member    = "serviceAccount:${google_service_account.api.email}"
 }
 
@@ -103,6 +146,18 @@ resource "google_cloud_run_v2_service" "api" {
       env {
         name  = "IMAGES_PUBLIC_BASE_URL"
         value = var.images_public_base_url
+      }
+      env {
+        name  = "SITE_URL"
+        value = var.site_url
+      }
+      env {
+        name  = "LINKEDIN_ORG_URN"
+        value = var.linkedin_org_urn
+      }
+      env {
+        name  = "GCP_PROJECT_ID"
+        value = var.project_id
       }
 
       env {

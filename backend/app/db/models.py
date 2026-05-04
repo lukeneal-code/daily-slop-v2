@@ -129,6 +129,23 @@ class FrontPagePick(Base):
     article_id: Mapped[int] = mapped_column(Integer, ForeignKey("articles.id"), nullable=False)
 
 
+class LinkedInPost(Base):
+    __tablename__ = "linkedin_posts"
+
+    publish_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    post_urn: Mapped[str | None] = mapped_column(Text)
+    post_text: Mapped[str] = mapped_column(Text, nullable=False)
+    image_asset_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("image_assets.id"), nullable=True
+    )
+    article_ids: Mapped[list[int]] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    error: Mapped[str | None] = mapped_column(Text)
+    sent_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class AgentStep(Base):
     __tablename__ = "agent_steps"
 

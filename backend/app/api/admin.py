@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from app.api.auth import verify_scheduler_or_dev_token
 from app.config import get_settings
 from app.pipeline.daily import run_daily
+from app.social.runner import post_today_to_linkedin
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["admin"])
@@ -51,6 +52,37 @@ async def trigger_generate(
         publish_date=result.publish_date,
         total_articles=result.total_articles,
         rejected_count=result.rejected_count,
+    )
+
+
+class PostLinkedInRequest(BaseModel):
+    publish_date: date | None = None
+
+
+class PostLinkedInResponse(BaseModel):
+    publish_date: date
+    status: str
+    post_urn: str | None
+    article_ids: list[int]
+
+
+@router.post(
+    "/post-linkedin",
+    status_code=status.HTTP_200_OK,
+    response_model=PostLinkedInResponse,
+)
+async def trigger_post_linkedin(
+    body: PostLinkedInRequest | None = None,
+    _principal: Annotated[str, Depends(verify_scheduler_or_dev_token)] = "",
+) -> PostLinkedInResponse:
+    target = (body and body.publish_date) or _today_london()
+    log.info("admin/post-linkedin triggered date=%s", target)
+    result = await post_today_to_linkedin(target)
+    return PostLinkedInResponse(
+        publish_date=result.publish_date,
+        status=result.status,
+        post_urn=result.post_urn,
+        article_ids=result.article_ids,
     )
 
 
