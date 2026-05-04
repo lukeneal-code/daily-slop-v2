@@ -38,6 +38,7 @@ class ArticleFull(ArticleSummary):
 
 class FrontPageStoryOut(ArticleSummary):
     slot: str
+    body_html: str
 
 
 class FrontPageOut(BaseModel):

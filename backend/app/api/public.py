@@ -66,6 +66,7 @@ async def list_articles(
             stories=[
                 FrontPageStoryOut(
                     slot=getattr(a, "slot", "headline"),
+                    body_html=a.body_html,
                     **_summary(a).model_dump(),
                 )
                 for a in stories

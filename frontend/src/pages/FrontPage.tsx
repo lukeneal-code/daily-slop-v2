@@ -45,7 +45,7 @@ export default function FrontPage() {
     <>
       <AdSlot slot={slots[0]} date={displayDate} />
       <hr className="section-rule" />
-      <HeadlineStory story={{ ...headline, body_html: '', source: undefined }} />
+      <HeadlineStory story={{ ...headline, source: undefined }} />
       <hr className="section-rule" />
       <AdSlot slot={slots[1]} date={displayDate} />
       <hr className="section-rule" />
