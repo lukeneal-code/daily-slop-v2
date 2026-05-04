@@ -6,6 +6,8 @@
 #   4. Creates *empty* secrets in Secret Manager. Prints the `gcloud` command lines
 #      to add real values — the script itself never reads or writes secret material.
 #   5. Creates a Workload Identity Pool + provider for GitHub Actions deploys.
+#   6. Grants gha-deploy the curated set of project roles needed to run the
+#      deploy workflow end to end (build/push, terraform apply, frontend sync).
 #
 # This script is idempotent. Re-run safely.
 set -euo pipefail
@@ -14,7 +16,7 @@ PROJECT_ID="${PROJECT_ID:-daily-slop-v2}"
 PROJECT_NAME="${PROJECT_NAME:-Daily Slop v2}"
 REGION="${REGION:-europe-west2}"
 TFSTATE_BUCKET="${TFSTATE_BUCKET:-${PROJECT_ID}-tfstate}"
-GH_REPO="${GH_REPO:-lukeneal/daily-slop-v2}"
+GH_REPO="${GH_REPO:-lukeneal-code/daily-slop-v2}"
 
 # Comma-separated billing account ID, or empty to skip linking. Fetch yours with:
 #   gcloud billing accounts list --format='value(name)'
@@ -164,6 +166,32 @@ for sa in gha-ci gha-deploy; do
     "${sa}@${PROJECT_ID}.iam.gserviceaccount.com" \
     --role="roles/iam.workloadIdentityUser" \
     --member="principalSet://iam.googleapis.com/${POOL_NAME}/attribute.repository/${GH_REPO}" >/dev/null
+done
+
+# Project roles for gha-deploy. Curated to what the deploy workflow actually
+# does: push images, run terraform apply (Cloud Run, Cloud SQL, networking,
+# LB/CDN, secrets, scheduler, IAM), sync the frontend bucket, invalidate CDN.
+log "Granting project roles to gha-deploy..."
+DEPLOY_MEMBER="serviceAccount:gha-deploy@${PROJECT_ID}.iam.gserviceaccount.com"
+for ROLE in \
+  roles/artifactregistry.writer \
+  roles/storage.admin \
+  roles/run.admin \
+  roles/iam.serviceAccountUser \
+  roles/iam.serviceAccountAdmin \
+  roles/compute.loadBalancerAdmin \
+  roles/compute.networkAdmin \
+  roles/secretmanager.admin \
+  roles/cloudsql.admin \
+  roles/servicenetworking.networksAdmin \
+  roles/vpcaccess.admin \
+  roles/cloudscheduler.admin \
+  roles/serviceusage.serviceUsageAdmin; do
+  gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+    --member="${DEPLOY_MEMBER}" \
+    --role="${ROLE}" \
+    --condition=None \
+    --quiet >/dev/null
 done
 
 cat <<EOF
