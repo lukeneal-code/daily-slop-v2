@@ -33,6 +33,7 @@ node_modules/
 !.env.example
 *.tfvars
 !*.example.tfvars
+!infra/terraform/envs/*.tfvars
 *.tfstate
 *.tfstate.*
 .terraform/
