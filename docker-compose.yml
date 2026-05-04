@@ -1,0 +1,84 @@
+name: daily-slop
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: slop
+      POSTGRES_PASSWORD: slop
+      POSTGRES_DB: slop
+      POSTGRES_MULTIPLE_DATABASES: langfuse
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./langfuse/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/00-multiple-dbs.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U slop -d slop"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    environment:
+      ENV: local
+      API_URL: http://localhost:8000
+      CORS_ORIGINS: '["http://localhost:5173"]'
+      DATABASE_URL: postgresql+asyncpg://slop:slop@db:5432/slop
+      DATABASE_URL_SYNC: postgresql+psycopg://slop:slop@db:5432/slop
+      FAKE_LLM: "true"
+      IMAGES_LOCAL_DIR: /var/slop/images
+      IMAGES_PUBLIC_BASE_URL: http://localhost:8000/images
+      LANGFUSE_HOST: http://langfuse-web:3000
+      LANGFUSE_ENABLED: "false"
+      ADMIN_DEV_TOKEN: dev-please-change
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/app:/app/app:ro
+      - ./backend/alembic:/app/alembic:ro
+      - images_data:/var/slop/images
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    command: ["sh", "-c", "corepack enable && pnpm install && pnpm dev --host 0.0.0.0"]
+    environment:
+      VITE_API_BASE: http://localhost:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+
+  langfuse-web:
+    # LangFuse self-host. Configured to use the `langfuse` DB on the shared Postgres.
+    # Same shape as the prod deployment so `docker compose up` mirrors prod behaviour.
+    image: langfuse/langfuse:3
+    environment:
+      DATABASE_URL: postgresql://slop:slop@db:5432/langfuse
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: dev-nextauth-secret-change-in-prod
+      SALT: dev-salt-change-in-prod
+      ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_DEFAULT_PROJECT_ID: slop-dev
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: lf-dev-public
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: lf-dev-secret
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:
+  images_data:
+  frontend_node_modules:

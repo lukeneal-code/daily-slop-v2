@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (lint + tests)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: slop
+          POSTGRES_PASSWORD: slop
+          POSTGRES_DB: slop
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U slop"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.4.30"
+      - run: uv python install 3.12
+      - run: uv sync --frozen || uv sync
+      - run: uv run ruff check .
+      - run: uv run mypy app
+      - run: uv run pytest -m "not eval"
+        env:
+          ENV: test
+          DATABASE_URL: postgresql+asyncpg://slop:slop@localhost:5432/slop
+          DATABASE_URL_SYNC: postgresql+psycopg://slop:slop@localhost:5432/slop
+          FAKE_LLM: "true"
+
+  frontend:
+    name: Frontend (lint + tests + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile || pnpm install
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  terraform:
+    name: Terraform (fmt + validate + plan)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false
+      - run: terraform validate
+      # `terraform plan` against prod requires WIF + tfstate bucket. Once Phase 2's
+      # bootstrap.sh has been run and AUTH is wired in, set TF_PLAN=true to enable the
+      # plan + PR comment step here.

@@ -1,0 +1,45 @@
+
+We are going to build a new, updated feature rich version of an existing project.
+
+The existing project is called The Daily Slop. It is a satirical news site with new articles published daily.
+
+It is hosted on https://dailyslop.co.uk. The source control is available under /Development/the-daily-slop. Use both of these for context of the original version 1 of this project. This new product itself is just a more built-out version of the old project, same philosophy.
+
+Things for version 2 that we want to carry over from the previous version:
+
+1. The header “logo” style is fantastic, let’s keep that. The general styling of the website is great, including the colour scheme and the red stars either side of the title. Keep the same general style / vibe.
+2. The writing tone is great. It’s witty and brief.
+3. The newspaper layout is cool.
+4. The footer disclaimer is funny.
+
+The first thing we want to do is create an entire volume back-up of the existing project, currently hosted on GCP. All previous articles should be backed up both locally on this machine and on GCP.
+
+For the new version of the website, we are building out the following features:
+
+1. A front-page with the three biggest stories of the day, similar to the current website.
+2. Different sections - Politics, Business etc. We want at least 5 of these, with the option to add more later. Reason out what would be the most appropriate ones for a satirical new site like this. The aim is to inform but also make the reader laugh! Three stories per page is enough, for now.
+3. Fake advertising spots on all pages, which we will eventually replace with real ones. Don’t place them all in the same place, make them varying in size and placement on each page.
+4. The cartoon pictures for each article should be in the STYLE of Charle’s Addams, not literally Addams family cartoons. Drop the overtly gothic elements of the previous style in the old project, keep the general style (back and white satirical cartoons in Charle’s style). It’s as if Charle’s Addams was drawing for The Private Eye. Make sure that mages fit neatly into the articles.
+
+For this new version the project, we are going to make an agentic backend. Use LangGraph to orchestrate.
+
+Here are the agent roles:
+
+1. Claude remains the main writer. He should be witty and intelligent. The same general style as the previous website would be perfect. He should be called Nigel.
+2. A GPT model from OpenAI, this time as an editor of the website. She should serve as an antagonistic critic, chiefly ensuring that the writing seems “human” and funny for humans to read. She has a sharp sense of humour but with a mind for user readability. She is quite Laissez Faire in general, letting the writers have a lot of creative freedom. She should be called Elle.
+3. Grok for some articles. These are the more left-field, riskier articles. Elle the editor should be more strict about what she lets through here. He is called Steve.
+
+The agents can push back one time if they think the editor is being too strict. At the end of the day though, she gets the final word.
+
+The same daily news article generation should be in place.
+
+This should all be deployed on GCP, it will replace the old version once it’s ready.
+
+Technologies to user:
+
+1. React for the front-end.
+2. Python / FastAPI / LangGraph for the back-end. Include tests.
+3. Self-hosted LangFuse for evals, set up some synthetic data for this.
+4. Terraform for deployment.
+5. Github actions for CI CD. Build/Test on feature branch commit, deployment on commit / merge to main. Nice and simple.
+
